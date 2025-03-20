@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 
-from serpapi import GoogleSearch
+
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -11,6 +11,7 @@ from langchain_openai import AzureChatOpenAI
 from docx import Document as DC
 import time
 import secrets
+from serpapi import GoogleSearch
 from beautifulsoup4 import BeautifulSoup
 
 
