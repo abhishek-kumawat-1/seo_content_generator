@@ -1,8 +1,5 @@
 streamlit
 requests
-bs4
-beautifulsoup4
-BeautifulSoup
 serpapi
 langchain
 sentence-transformers
@@ -10,3 +7,4 @@ langchain_community
 langchain_openai
 faiss-cpu
 docx
+bs4
