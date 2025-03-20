@@ -1,6 +1,8 @@
 streamlit
 requests
 bs4
+beautifulsoup4
+BeautifulSoup
 serpapi
 langchain
 sentence-transformers
