@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-from beautifulsoup4 import BeautifulSoup
+
 from serpapi import GoogleSearch
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -11,6 +11,7 @@ from langchain_openai import AzureChatOpenAI
 from docx import Document as DC
 import time
 import secrets
+from beautifulsoup4 import BeautifulSoup
 
 
 # Streamlit UI
