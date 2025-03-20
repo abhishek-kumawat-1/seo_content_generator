@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-from bs4 import BeautifulSoup
+from beautifulsoup4 import BeautifulSoup
 from serpapi import GoogleSearch
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
