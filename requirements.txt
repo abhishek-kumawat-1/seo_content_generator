@@ -8,3 +8,5 @@ langchain_openai
 faiss-cpu
 docx
 beautifulsoup4
+bs4
+langchain_huggingface
