@@ -1,6 +1,5 @@
 streamlit
 requests
-serpapi
 langchain
 sentence-transformers
 langchain_community
@@ -10,3 +9,5 @@ docx
 beautifulsoup4
 bs4
 langchain_huggingface
+python-docx
+torch
