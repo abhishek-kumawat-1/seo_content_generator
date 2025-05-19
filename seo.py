@@ -134,7 +134,7 @@ def generate_seo_content(text, keyword):
     cleaned_text = extract_clean_text(rdocs)
     query = f"Generate optimized SEO content for {brand} in {language} considering the country : ({country}) which can rank us on No.1. Include: Title (within 60 characters), Meta (within 160 characters), H1 (within 60 characters), Intro (within 500 characters), Info (within 800-1200 words). Avoid competitors brand name in the content."
     guideline = f"The blog should be in informational and conversational tone for {brand}'s website."
-    guideline_for_seo=f"Use a primary keyword: Choose one primary keyword to focus on and optimize content around. 
+    guideline_for_seo=f"""Use a primary keyword: Choose one primary keyword to focus on and optimize content around. 
 Include secondary keywords: In addition to primary keyword, include secondary keywords to improve SEO rankings. 
 Use keywords in multiple places: Include keywords in title, meta description, headers, subheadings, and throughout content.
 Include long-tail keywords: use long-tail keywords in the content 
@@ -142,7 +142,7 @@ Synonyms & LSI Keywords, Add related terms and long-tail variations to improve s
 ⁠Density: Use the main keyword naturally 2–3 times per 100 words (1–3%). Don’t overuse—avoid keyword stuffing.
 Proximity: Keep keywords and their related terms close together in sentences to improve relevance.
 Focus on natural flow and user readability while maintaining SEO signals.
-Avoid keyword stuffing. and duplicate content"
+Avoid keyword stuffing. and duplicate content"""
     guideline2 = f"You should pick up the activities, events, places, popular attractions for vacation and generic facts about location from the {cleaned_text}. Write it as a human would write and don't use complex words. Make it easier to read and the content should be in proper flow and SEO Optimized."
     response = ai_client.invoke(query + guideline + guideline_for_seo + guideline2 + additional_input)
     return response.content.strip()
