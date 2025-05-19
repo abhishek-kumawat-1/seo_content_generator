@@ -132,7 +132,7 @@ def generate_seo_content(text, keyword):
     retriever = vectorstore.as_retriever(score_threshold=0.7)
     rdocs = retriever.invoke(keyword)
     cleaned_text = extract_clean_text(rdocs)
-    query = f"Generate optimized SEO content for {brand} in {language} considering the country : ({country}) which can rank us on No.1. Include: Title (within 60 characters), Meta (within 160 characters), H1 (within 60 characters), Intro (within 500 characters), Info (within 800-1200 words). Avoid competitors brand name in the content."
+    query = f"Generate optimized SEO content for {brand} in {language} considering the country : ({country}) which can rank us on No.1. Include: Title (strict character limit of 50-60 characters), Meta (strict character limit of 150-160 characters), H1 (within 60 characters), Intro (strict character limit of 450-500 characters), Info (within 800-1200 words). Avoid competitors brand name in the content."
     guideline = f"The blog should be in informational and conversational tone for {brand}'s website."
     guideline_for_seo=f"""Use a primary keyword: Choose one primary keyword to focus on and optimize content around. 
 Include secondary keywords: In addition to primary keyword, include secondary keywords to improve SEO rankings. 
