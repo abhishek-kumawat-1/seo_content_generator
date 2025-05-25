@@ -1,4 +1,4 @@
-
+import torch
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -80,8 +80,23 @@ ai_client = AzureChatOpenAI(
     azure_endpoint=st.secrets["openai_endpoint"],
     azure_deployment="gpt-data"
 )
-embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
+# embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
+# encoder = SentenceTransformer("all-mpnet-base-v2")
+
+# Always load on CPU
+device = 'cpu'
+
 encoder = SentenceTransformer("all-mpnet-base-v2")
+encoder = encoder.to(device)
+
+embeddings = HuggingFaceEmbeddings(
+    model_name='sentence-transformers/all-MiniLM-L6-v2',
+    model_kwargs={"device": device}
+)
+
+
+
+
 
 def extract_text_from_url(url):
     try:
