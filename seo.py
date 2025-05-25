@@ -246,13 +246,12 @@ def load_models():
         model_kwargs={'device': device}
     )
     
-    # Initialize encoder
-    encoder = SentenceTransformer(
-        "all-mpnet-base-v2",
-        device=device
-    )
-    
+    # Initialize encoder and move it to device
+    encoder = SentenceTransformer("all-mpnet-base-v2")
+    encoder.to(device)
+
     return embeddings, encoder
+
 
 # Sidebar inputs
 st.sidebar.header("Input Parameters")
