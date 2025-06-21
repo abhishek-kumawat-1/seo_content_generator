@@ -13,15 +13,23 @@ import google.generativeai as genai
 
 
 # Streamlit setup
-st.set_page_config(page_title="SEO Content Generator 1.0", page_icon="🤓", layout="wide")
-st.title("SEO Content Generator")
+st.set_page_config(page_title="🧠 SEO Content Generator", page_icon="🤓", layout="wide")
+
+st.markdown(
+    """
+    <h1 style='text-align: center; color: #4CAF50;'>🧠 SEO Content Generator v2.0</h1>
+    <p style='text-align: center; font-size: 18px;'>Generate top-ranking SEO content. Powered by Gemini Pro & Google Search!</p>
+    <hr style="border:1px solid #ccc;">
+    """,
+    unsafe_allow_html=True
+)
 col1, col2 = st.columns([6, 1])
 with col2:
    st.markdown(
     """
     <a href="https://www.linkedin.com/in/abhishek-kumawat-iitd/" target="_blank">
         <button style="background-color:#0072b1; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;">
-            How it works?
+            💡 How it works?
         </button>
     </a>
     """,
@@ -30,7 +38,7 @@ with col2:
 
 
 # Sidebar inputs
-st.sidebar.header("Input Parameters")
+st.sidebar.header("🛠️ Input Parameters")
 doc_file = "seo_content_revamp_AK.docx"
 
 # --- Language and Country Mapping ---
@@ -60,8 +68,8 @@ country_options = {
 }
 
 # --- Dropdowns in Sidebar ---
-language_choice = st.sidebar.selectbox("Language", list(language_options.keys()))
-country_choice = st.sidebar.selectbox("Country", list(country_options.keys()))
+language_choice = st.sidebar.selectbox("🌐 Language", list(language_options.keys()))
+country_choice = st.sidebar.selectbox("🏳️ Country", list(country_options.keys()))
 
 # --- Get API codes based on dropdown selections ---
 search_language = language_options[language_choice]
@@ -69,10 +77,10 @@ search_country = country_options[country_choice]
 
 language = language_choice
 country = country_choice
-brand = st.sidebar.text_input("Brand", "Danland")
-base_urls = st.sidebar.text_area("Base URLs (comma-separated)").split(",")
-keyword = st.sidebar.text_area("Enter the Keyword (Required)")
-additional_input = st.sidebar.text_area("Additional Input (Enter additional input here)")
+brand = st.sidebar.text_input("🏷️ Brand", "Danland")
+base_urls = st.sidebar.text_area("🔗 Base URLs (comma-separated)").split(",")
+keyword = st.sidebar.text_area("🔍 Enter the Keyword (Required)")
+additional_input = st.sidebar.text_area("✏️ Additional Input (Enter additional input here)")
 
 
 
@@ -167,7 +175,7 @@ Avoid keyword stuffing. and duplicate content"""
     return response.text
 
 # ✅ Main action
-if st.sidebar.button("Generate SEO Content"):
+if st.sidebar.button("🚀 Generate SEO Content"):
     if not brand or not base_urls or not keyword:
         st.sidebar.error("Please fill in all required fields: Brand, Base URLs, and Keyword.")
     else:
@@ -179,10 +187,10 @@ if st.sidebar.button("Generate SEO Content"):
         current_step = 0
 
         for base_url in base_urls:
-            st.write(f"Base URL: `{base_url}`")
+            st.write(f"🔗 Base URL: `{base_url}`")
             
             # Step 1: Extract base URL content
-            status_text.text("Step 1/4: Extracting content from base URL...")
+            status_text.text("Step 1/4: 📄 Extracting content from base URL...")
             base_text = extract_text_from_url(base_url)
             current_step += 1
             progress_bar.progress(current_step / total_steps)
@@ -190,14 +198,14 @@ if st.sidebar.button("Generate SEO Content"):
             # Step 2: Generate keyword
             status_text.text("Step 2/4: Generating keyword...")
             # keyword = generate_keyword(base_text)  # You can use AI to generate keyword if not user-provided
-            st.write(f"Using Keyword: `{keyword}`")
+            st.write(f"🔑 Using Keyword: `{keyword}`")
             current_step += 1
             progress_bar.progress(current_step / total_steps)
 
             # Step 3: Scrape top Google results
-            status_text.text("Step 3/4: Scraping competitor URLs...")
+            status_text.text("Step 3/4: 🔍 Scraping competitor URLs...")
             top_links = scrape_google_search_results(keyword, country_code=search_country, language_code=search_language)
-            st.write("Top competitor URLs found:")
+            st.write("🏁 Top competitor URLs found:")
             for link in top_links:
                 st.write(f"- {link}")
             competitor_text = extract_texts_from_urls(top_links)
@@ -205,7 +213,7 @@ if st.sidebar.button("Generate SEO Content"):
             progress_bar.progress(current_step / total_steps)
 
             # Step 4: Generate SEO content
-            status_text.text("Step 4/4: Generating SEO content...")
+            status_text.text("Step 4/4: ✍️ Generating SEO content...")
             generated_content = generate_seo_content(competitor_text, keyword)
             st.text_area("Generated SEO Content", generated_content, height=300)
             current_step += 1
