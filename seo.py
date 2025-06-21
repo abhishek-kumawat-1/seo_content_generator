@@ -6,9 +6,11 @@ from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from sentence_transformers import SentenceTransformer
-from langchain_openai import AzureChatOpenAI
+# from langchain_openai import AzureChatOpenAI
 from docx import Document as DC
 from langchain_huggingface import HuggingFaceEmbeddings
+import google.generativeai as genai
+
 
 # Streamlit setup
 st.set_page_config(page_title="SEO Content Generator 1.0", page_icon="🤓", layout="wide")
@@ -73,15 +75,14 @@ keyword = st.sidebar.text_area("Enter the Keyword (Required)")
 additional_input = st.sidebar.text_area("Additional Input (Enter additional input here)")
 
 
-# Initialize AI + Embeddings
-ai_client = AzureChatOpenAI(
-    api_key=st.secrets["openai_api"],
-    api_version="2023-12-01-preview",
-    azure_endpoint=st.secrets["openai_endpoint"],
-    azure_deployment="gpt-data"
-)
-# embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
-# encoder = SentenceTransformer("all-mpnet-base-v2")
+
+
+# Configure the Gemini client
+genai.configure(api_key=st.secrets["gemini_api"])
+
+# Initialize the model
+model = genai.GenerativeModel("gemini-2.5-pro")
+
 
 # Always load on CPU
 device = 'cpu'
@@ -110,8 +111,8 @@ def extract_text_from_url(url):
 
 def generate_keyword(text):
     query = f"Based on the {text}. Tell me a keyword which sums up all content."
-    response = ai_client.invoke(query)
-    return response.content.strip()
+    response = model.generate_content(query)
+    return response.text 
 
 # ✅ NEW: Google Custom Search API
 def scrape_google_search_results(keyword, country_code='dk', language_code='lang_da', num_results=5):
@@ -159,8 +160,11 @@ Proximity: Keep keywords and their related terms close together in sentences to 
 Focus on natural flow and user readability while maintaining SEO signals.
 Avoid keyword stuffing. and duplicate content"""
     guideline2 = f"You should pick up the activities, events, places, popular attractions for vacation and generic facts about location from the {cleaned_text}. Write it as a human would write and don't use complex words. Make it easier to read and the content should be in proper flow and SEO Optimized."
-    response = ai_client.invoke(query + guideline + guideline_for_seo + guideline2 + additional_input)
-    return response.content.strip()
+    final_query=query + guideline + guideline_for_seo + guideline2 + additional_input
+    response = model.generate_content(final_query)
+
+    # response = ai_client.invoke(query + guideline + guideline_for_seo + guideline2 + additional_input)
+    return response.text
 
 # ✅ Main action
 if st.sidebar.button("Generate SEO Content"):
@@ -219,4 +223,3 @@ if st.sidebar.button("Generate SEO Content"):
                 file_name="seo_content_revamp.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
-
