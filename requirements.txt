@@ -12,3 +12,4 @@ langchain_huggingface
 python-docx
 torch
 google-generativeai
+os
