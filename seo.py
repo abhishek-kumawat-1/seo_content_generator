@@ -95,8 +95,11 @@ model = genai.GenerativeModel("gemini-2.5-pro")
 # Always load on CPU
 device = 'cpu'
 
-encoder = SentenceTransformer("all-mpnet-base-v2", device="cpu")
+encoder = SentenceTransformer("all-mpnet-base-v2")
 
+# Move empty weights to CPU, then load actual weights
+encoder = encoder.to_empty(device=device)
+encoder.load_state_dict(encoder.state_dict())
 # encoder = encoder.to(device)
 
 embeddings = HuggingFaceEmbeddings(
