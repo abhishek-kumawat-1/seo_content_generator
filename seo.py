@@ -93,21 +93,30 @@ model = genai.GenerativeModel("gemini-2.5-pro")
 
 
 # Always load on CPU
+# device = 'cpu'
+
+# encoder = SentenceTransformer("all-mpnet-base-v2")
+
+# # Move empty weights to CPU, then load actual weights
+# encoder = encoder.to_empty(device=device)
+# encoder.load_state_dict(encoder.state_dict())
+# # encoder = encoder.to(device)
+
+# embeddings = HuggingFaceEmbeddings(
+#     model_name='sentence-transformers/all-MiniLM-L6-v2',
+#     model_kwargs={"device": device}
+# )
+
+# Always load on CPU
 device = 'cpu'
 
-encoder = SentenceTransformer("all-mpnet-base-v2")
-
-# Move empty weights to CPU, then load actual weights
-encoder = encoder.to_empty(device=device)
-encoder.load_state_dict(encoder.state_dict())
-# encoder = encoder.to(device)
+# ✅ Load directly on CPU, avoiding .to() or .to_empty()
+encoder = SentenceTransformer("all-mpnet-base-v2", device=device)
 
 embeddings = HuggingFaceEmbeddings(
     model_name='sentence-transformers/all-MiniLM-L6-v2',
     model_kwargs={"device": device}
 )
-
-
 
 
 
