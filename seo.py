@@ -329,20 +329,30 @@ additional_input = st.sidebar.text_area("✏️ Additional Input (Enter addition
 genai.configure(api_key=st.secrets["gemini_api"])
 model = genai.GenerativeModel("gemini-2.5-pro")
 
+
 # Always load on CPU safely (no meta tensor errors)
 device = "cpu"
-tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-mpnet-base-v2")
-hf_model = AutoModel.from_pretrained("sentence-transformers/all-mpnet-base-v2")
-word_embedding_model = models.Transformer(hf_model, tokenizer=tokenizer)
-pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension())
-encoder = SentenceTransformer(modules=[word_embedding_model, pooling_model])
-encoder = encoder.to(device)
 
-# HuggingFace embeddings for LangChain
+# --- SentenceTransformer encoder ---
+# Load embedding model structure without weights first
+word_embedding_model = models.Transformer("sentence-transformers/all-mpnet-base-v2")
+word_embedding_model.auto_model = word_embedding_model.auto_model.to_empty(device=device)
+
+# Pooling layer
+pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension())
+
+# Final SentenceTransformer encoder
+encoder = SentenceTransformer(modules=[word_embedding_model, pooling_model], device=device)
+
+# --- HuggingFace embeddings for LangChain ---
 embeddings = HuggingFaceEmbeddings(
-    model_name='sentence-transformers/all-MiniLM-L6-v2',
+    model_name="sentence-transformers/all-MiniLM-L6-v2",
     model_kwargs={"device": device}
 )
+
+
+
+
 
 def extract_text_from_url(url):
     try:
