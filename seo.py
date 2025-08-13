@@ -247,21 +247,34 @@
 
 
 
+# seo_app.py
 
-import torch
-import streamlit as st
+import os
+import io
+import time
 import requests
+import streamlit as st
 from bs4 import BeautifulSoup
+
+# LangChain / Vector search
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from sentence_transformers import SentenceTransformer, models
-from transformers import AutoModel, AutoTokenizer
-from docx import Document as DC
 from langchain_huggingface import HuggingFaceEmbeddings
+
+# Sentence-Transformers (manual, stable init)
+from sentence_transformers import SentenceTransformer, models
+
+# Output docx
+from docx import Document as DC
+
+# Google Gemini
 import google.generativeai as genai
 
-# Streamlit setup
+
+# =========================
+# Streamlit UI
+# =========================
 st.set_page_config(page_title="🧠 SEO Content Generator", page_icon="🤓", layout="wide")
 
 st.markdown(
@@ -272,6 +285,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 col1, col2 = st.columns([6, 1])
 with col2:
     st.markdown(
@@ -285,11 +299,12 @@ with col2:
         unsafe_allow_html=True
     )
 
-# Sidebar inputs
+# =========================
+# Sidebar
+# =========================
 st.sidebar.header("🛠️ Input Parameters")
 doc_file = "seo_content_revamp_AK.docx"
 
-# Language and country mapping
 language_options = {
     "Danish": "lang_da",
     "Dutch": "lang_nl",
@@ -313,63 +328,85 @@ country_options = {
     "Spain": "es"
 }
 
-# Dropdowns in Sidebar
 language_choice = st.sidebar.selectbox("🌐 Language", list(language_options.keys()))
 country_choice = st.sidebar.selectbox("🏳️ Country", list(country_options.keys()))
+
 search_language = language_options[language_choice]
 search_country = country_options[country_choice]
+
 language = language_choice
 country = country_choice
 brand = st.sidebar.text_input("🏷️ Brand", "Danland")
-base_urls = st.sidebar.text_area("🔗 Base URLs (comma-separated)").split(",")
+base_urls_raw = st.sidebar.text_area("🔗 Base URLs (comma-separated)")
+base_urls = [u.strip() for u in base_urls_raw.split(",") if u.strip()]
 keyword = st.sidebar.text_area("🔍 Enter the Keyword (Required)")
 additional_input = st.sidebar.text_area("✏️ Additional Input (Enter additional input here)")
 
-# Configure Gemini client
-genai.configure(api_key=st.secrets["gemini_api"])
-model = genai.GenerativeModel("gemini-2.5-pro")
+# =========================
+# Config / Secrets
+# =========================
+DEVICE = "cpu"
 
+# Guardrails for secrets
+missing_secrets = []
+for key in ("gemini_api", "google_search_api", "cx_id"):
+    if key not in st.secrets:
+        missing_secrets.append(key)
+if missing_secrets:
+    st.warning(
+        "Some secrets are missing: " + ", ".join(missing_secrets) +
+        ". Add them to Streamlit secrets for full functionality."
+    )
 
-# Always load on CPU safely (no meta tensor errors)
-device = "cpu"
+# =========================
+# Caching: Models & Clients
+# =========================
+@st.cache_resource(show_spinner=True)
+def load_encoder_and_embeddings():
+    """
+    Load SentenceTransformer encoder via module composition to avoid
+    meta-tensor issues, and HuggingFaceEmbeddings for FAISS.
+    Everything is pinned to CPU.
+    """
+    # Build encoder from modules (doesn't pass tokenizer objects directly)
+    word_embedding_model = models.Transformer("sentence-transformers/all-mpnet-base-v2")
+    pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension())
+    encoder = SentenceTransformer(modules=[word_embedding_model, pooling_model], device=DEVICE)
 
-# --- SentenceTransformer encoder ---
-# Load embedding model structure without weights first
-word_embedding_model = models.Transformer("sentence-transformers/all-mpnet-base-v2")
-word_embedding_model.auto_model = word_embedding_model.auto_model.to_empty(device=device)
+    # LangChain embeddings (MiniLM) on CPU
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": DEVICE}
+    )
+    return encoder, embeddings
 
-# Pooling layer
-pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension())
+@st.cache_resource(show_spinner=True)
+def load_gemini_client():
+    if "gemini_api" in st.secrets:
+        genai.configure(api_key=st.secrets["gemini_api"])
+        return genai.GenerativeModel("gemini-2.5-pro")
+    return None
 
-# Final SentenceTransformer encoder
-encoder = SentenceTransformer(modules=[word_embedding_model, pooling_model], device=device)
+encoder, embeddings = load_encoder_and_embeddings()
+gemini_model = load_gemini_client()
 
-# --- HuggingFace embeddings for LangChain ---
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-    model_kwargs={"device": device}
-)
-
-
-
-
-
-def extract_text_from_url(url):
+# =========================
+# Helpers
+# =========================
+def extract_text_from_url(url: str) -> str:
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
-        return " ".join([p.get_text() for p in soup.find_all("p")])
+        return " ".join(p.get_text(strip=True) for p in soup.find_all("p"))
     except requests.exceptions.RequestException as e:
         st.warning(f"Error fetching {url}: {e}")
         return ""
 
-def generate_keyword(text):
-    query = f"Based on the {text}. Tell me a keyword which sums up all content."
-    response = model.generate_content(query)
-    return response.text 
-
-def scrape_google_search_results(keyword, country_code='dk', language_code='lang_da', num_results=5):
+def scrape_google_search_results(keyword: str, country_code='dk', language_code='lang_da', num_results=5):
+    if "google_search_api" not in st.secrets or "cx_id" not in st.secrets:
+        st.warning("Google Search API not configured. Provide 'google_search_api' and 'cx_id' in secrets.")
+        return []
     url = "https://www.googleapis.com/customsearch/v1"
     params = {
         "key": st.secrets["google_search_api"],
@@ -380,7 +417,8 @@ def scrape_google_search_results(keyword, country_code='dk', language_code='lang
         "lr": language_code
     }
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
         results = response.json()
         return [item['link'] for item in results.get("items", []) if "link" in item]
     except Exception as e:
@@ -388,38 +426,72 @@ def scrape_google_search_results(keyword, country_code='dk', language_code='lang
         return []
 
 def extract_texts_from_urls(url_list):
-    return " ".join([extract_text_from_url(url) for url in url_list if url])
+    texts = []
+    for url in url_list:
+        if not url:
+            continue
+        texts.append(extract_text_from_url(url))
+    return " ".join(texts)
 
 def extract_clean_text(documents):
     return " ".join([doc.page_content for doc in documents])
 
-def generate_seo_content(text, keyword):
-    text_splitter = RecursiveCharacterTextSplitter(separators=['\n\n', '\n', '.', ','], chunk_size=1000)
+def build_vectorstore_from_text(text: str):
+    text_splitter = RecursiveCharacterTextSplitter(
+        separators=['\n\n', '\n', '.', ','],
+        chunk_size=1000,
+        chunk_overlap=100
+    )
     data = [Document(page_content=text)]
     docs = text_splitter.split_documents(data)
-    vectorstore = FAISS.from_documents(docs, embeddings)
-    vec = encoder.encode(keyword)
-    retriever = vectorstore.as_retriever(score_threshold=0.7)
-    rdocs = retriever.invoke(keyword)
-    cleaned_text = extract_clean_text(rdocs)
+    if not docs:
+        return None
+    return FAISS.from_documents(docs, embeddings)
 
-    query = f"Generate optimized SEO content for {brand} in {language} considering the country : ({country}) which can rank us on No.1. Include: Title (strict character limit of 50-60 characters), Meta (strict character limit of 150-160 characters), H1 (within 60 characters), Intro (strict character limit of 450-500 characters), Info (within 800-1200 words). Avoid competitors brand name in the content."
-    guideline = f"The blog should be in informational and conversational tone for {brand}'s website."
-    guideline_for_seo = """Use a primary keyword: Choose one primary keyword to focus on and optimize content around. 
-Include secondary keywords: In addition to primary keyword, include secondary keywords to improve SEO rankings. 
-Use keywords in multiple places: Include keywords in title, meta description, headers, subheadings, and throughout content.
-Include long-tail keywords: use long-tail keywords in the content.
-Synonyms & LSI Keywords: Add related terms and long-tail variations to improve semantic relevance and ranking for multiple queries.
-Density: Use the main keyword naturally 2–3 times per 100 words (1–3%). Avoid keyword stuffing.
-Proximity: Keep keywords and their related terms close together to improve relevance.
-Focus on natural flow and readability while maintaining SEO signals."""
-    guideline2 = f"You should pick up the activities, events, places, attractions for vacation and facts about location from the {cleaned_text}. Write it simply, in a natural flow, and make it SEO optimized."
-    final_query = query + guideline + guideline_for_seo + guideline2 + additional_input
+def generate_seo_content(cleaned_context: str, keyword: str) -> str:
+    if gemini_model is None:
+        return "Gemini API is not configured. Please add 'gemini_api' to Streamlit secrets."
 
-    response = model.generate_content(final_query)
-    return response.text
+    query = (
+        f"Generate optimized SEO content for {brand} in {language} considering the country: ({country}) "
+        f"which can rank us No.1.\n\n"
+        f"Include:\n"
+        f"- Title (strict character limit 50–60)\n"
+        f"- Meta (strict character limit 150–160)\n"
+        f"- H1 (within 60)\n"
+        f"- Intro (strict character limit 450–500)\n"
+        f"- Info (800–1200 words)\n\n"
+        f"Avoid competitor brand names.\n\n"
+        f"Context from competitor pages and research:\n{cleaned_context}\n\n"
+    )
 
-# Main action
+    guideline = f"The blog should be in informational and conversational tone for {brand}'s website.\n"
+    guideline_for_seo = (
+        "SEO Guidelines:\n"
+        "- Choose one primary keyword and optimize around it.\n"
+        "- Include relevant secondary keywords.\n"
+        "- Place keywords in title, meta, headers, and naturally in content.\n"
+        "- Include long-tail variations and semantically related terms.\n"
+        "- Use the main keyword ~1–3% density. Avoid stuffing.\n"
+        "- Keep related terms close to the main keyword.\n"
+        "- Prioritize readability and natural flow.\n"
+    )
+    guideline2 = (
+        "Use the provided context to pick activities, events, places, popular attractions, and relevant facts. "
+        "Write simply (no complex words), maintain a natural flow, and ensure SEO optimization.\n"
+    )
+
+    final_query = query + guideline + guideline_for_seo + guideline2 + (additional_input or "")
+
+    try:
+        response = gemini_model.generate_content(final_query)
+        return response.text
+    except Exception as e:
+        return f"Error generating content: {e}"
+
+# =========================
+# Main Action
+# =========================
 if st.sidebar.button("🚀 Generate SEO Content"):
     if not brand or not base_urls or not keyword:
         st.sidebar.error("Please fill in all required fields: Brand, Base URLs, and Keyword.")
@@ -427,39 +499,71 @@ if st.sidebar.button("🚀 Generate SEO Content"):
         progress_bar = st.progress(0)
         status_text = st.empty()
         doc = DC()
-        total_steps = len(base_urls) * 4
+
+        total_steps = max(1, len(base_urls)) * 4  # 4 steps per URL
         current_step = 0
 
         for base_url in base_urls:
             st.write(f"🔗 Base URL: `{base_url}`")
-            
+
+            # Step 1: Extract base URL content
             status_text.text("Step 1/4: 📄 Extracting content from base URL...")
             base_text = extract_text_from_url(base_url)
             current_step += 1
-            progress_bar.progress(current_step / total_steps)
+            progress_bar.progress(min(1.0, current_step / total_steps))
 
-            status_text.text("Step 2/4: Generating keyword...")
+            # Step 2: Keyword (user-provided; could auto-generate if desired)
+            status_text.text("Step 2/4: Generating/using keyword...")
             st.write(f"🔑 Using Keyword: `{keyword}`")
             current_step += 1
-            progress_bar.progress(current_step / total_steps)
+            progress_bar.progress(min(1.0, current_step / total_steps))
 
+            # Step 3: Competitor URLs from Google
             status_text.text("Step 3/4: 🔍 Scraping competitor URLs...")
-            top_links = scrape_google_search_results(keyword, country_code=search_country, language_code=search_language)
-            st.write("🏁 Top competitor URLs found:")
-            for link in top_links:
-                st.write(f"- {link}")
+            top_links = scrape_google_search_results(
+                keyword, country_code=search_country, language_code=search_language
+            )
+            if top_links:
+                st.write("🏁 Top competitor URLs found:")
+                for link in top_links:
+                    st.write(f"- {link}")
+            else:
+                st.info("No competitor URLs found with the current API settings or query.")
             competitor_text = extract_texts_from_urls(top_links)
+            # Combine with base text to give more context
+            combined_text = (base_text or "") + "\n" + (competitor_text or "")
             current_step += 1
-            progress_bar.progress(current_step / total_steps)
+            progress_bar.progress(min(1.0, current_step / total_steps))
 
+            # Step 4: Generate SEO content
             status_text.text("Step 4/4: ✍️ Generating SEO content...")
-            generated_content = generate_seo_content(competitor_text, keyword)
-            st.text_area("Generated SEO Content", generated_content, height=300)
+
+            # Build vectorstore (optional retrieval to shrink context)
+            cleaned_context = ""
+            if combined_text.strip():
+                vs = build_vectorstore_from_text(combined_text)
+                if vs:
+                    # Use similarity_search_with_score and filter by score threshold (lower is more similar)
+                    hits = vs.similarity_search_with_score(keyword, k=10)
+                    # FAISS returns distances; smaller = better. Keep top chunks with distance below a loose cap.
+                    # If your FAISS wrapper returns cosine similarity instead, adjust logic accordingly.
+                    kept = []
+                    for doc, score in hits:
+                        kept.append(doc.page_content)
+                    cleaned_context = "\n".join(kept)[:8000]  # keep context bounded
+                else:
+                    cleaned_context = combined_text[:8000]
+            else:
+                cleaned_context = ""
+
+            generated_content = generate_seo_content(cleaned_context, keyword)
+            st.text_area("Generated SEO Content", generated_content, height=350)
             current_step += 1
-            progress_bar.progress(current_step / total_steps)
+            progress_bar.progress(min(1.0, current_step / total_steps))
 
-            doc.add_paragraph(f"URL: {base_url.strip()}\n{generated_content}")
+            doc.add_paragraph(f"URL: {base_url.strip()}\n{generated_content}\n")
 
+        # Save and allow download
         doc.save(doc_file)
         st.success("✅ SEO Content generation complete and document saved!")
 
@@ -470,3 +574,4 @@ if st.sidebar.button("🚀 Generate SEO Content"):
                 file_name="seo_content_revamp.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
+
