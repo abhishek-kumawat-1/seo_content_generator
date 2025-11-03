@@ -285,7 +285,7 @@ st.set_page_config(page_title="🧠 SEO Content Generator", page_icon="🤓", la
 
 st.markdown(
     """
-    <h1 style='text-align: center; color: #4CAF50;'>🧠 SEO Content Generator v2.0</h1>
+    <h1 style='text-align: center; color: #4CAF50;'>🧠 SEO Content Generator v2.1 (It is fixed now..)</h1>
     <p style='text-align: center; font-size: 18px;'>Generate top-ranking SEO content. Powered by Gemini Pro & Google Search!</p>
     <hr style="border:1px solid #ccc;">
     """,
