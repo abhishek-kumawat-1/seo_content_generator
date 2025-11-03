@@ -257,7 +257,12 @@ import streamlit as st
 from bs4 import BeautifulSoup
 
 # LangChain / Vector search
-from langchain.schema import Document
+# from langchain.schema import Document
+   # Old (deprecated)
+   # from langchain.schema import Document
+
+   # New (recommended)
+from langchain_core.documents import Document 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
